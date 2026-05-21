@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use PDOException;
@@ -17,10 +18,10 @@ class AuthController extends Controller
     {
         //form_validation
         $request->validate(
-            //rules
+        //rules
             [
                 'text_username' => 'required|email',
-                'text_password' => 'required|min:6|max:8',
+                'text_password' => 'required|min:6|max:10',
             ],
             //error messages
             [
@@ -36,11 +37,43 @@ class AuthController extends Controller
         $username = $request->text_username;
         $password = $request->text_password;
 
+        //check if user exists
+        $user = User::where('username', $username)
+            ->where('deleted_at', NULL)
+            ->first();
 
+        if (!$user) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('loginError', 'Username ou password incorretos.');
+        }
+        // check if password is correct
+        if (!password_verify($password, $user->password)) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('loginError', 'Username ou password incorretos.');
+        }
+        // update last login
+        $user->last_login = date('Y-m-d H:i:s');
+        $user->save();
+
+        //login user
+        session([
+            'user' => [
+                'id' => $user->id,
+                'username' => $user->username,
+            ]
+        ]);
+
+        echo 'LOGIN COM SUCESSO!';
     }
 
     public function logout()
     {
-        echo 'logout';
+        //logout from the application
+        session()->forget('user');
+        return redirect()->to('/login');
     }
 }
